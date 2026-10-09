@@ -136,13 +136,14 @@ class Snake(GameObject):
     def __init__(
             self,
             length=1,
-            positions=[[SCREEN_CENTER_X, SCREEN_CENTER_Y]],
+            positions=None,
             direction=RIGHT,
             body_color=SNAKE_COLOR
     ):
         super().__init__(body_color)
         self.length = length
-        self.positions = positions
+        if positions is None:
+            self.positions = [[SCREEN_CENTER_X, SCREEN_CENTER_Y]]
         self.direction = direction
         self.next_direction = None
         self.last = None
