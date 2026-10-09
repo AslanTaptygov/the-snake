@@ -17,25 +17,28 @@ RIGHT = (1, 0)
 # Цвет фона - черный:
 BOARD_BACKGROUND_COLOR = (122, 117, 88)
 
-# Цвет границы змейки
-BORDER_SNAKE_COLOR = (34, 66, 36)
+# Цвет яблока
+APPLE_COLOR = (237, 14, 55)
 # Цвет границы яблока
 BORDER_APPLE_COLOR = (148, 12, 37)
 
-# Цвет яблока
-APPLE_COLOR = (237, 14, 55)
+# Цвет камня
+STONE_COLOR = (79, 79, 79)
+# Цвет границы камня
+BORDER_STONE_COLOR = (46, 46, 46)
 
 # Цвет змейки
 SNAKE_COLOR = (46, 89, 48)
+# Цвет границы змейки
+BORDER_SNAKE_COLOR = (34, 66, 36)
 
 # Координаты центра экрана
 SCREEN_CENTER_X = SCREEN_WIDTH // 2
 SCREEN_CENTER_Y = SCREEN_HEIGHT // 2
 
-# Толщина обводки змейки
-THICKNESS_SNAKE_OUTLINE = 2
-# Толщина обводки яблока
-THICKNESS_APPLE_OUTLINE = 2
+# Толщина обводки
+THICKNESS_OUTLINE = 2
+
 
 # Настройка игрового окна:
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
@@ -60,31 +63,71 @@ class GameObject:
         pass
 
 
-class Apple(GameObject):
-    """Класс для создания объекта Яблоко."""
+class InteractionObjects(GameObject):
+    """
+    Класс для создания объектов,
+    с которыми взаимодействует Змейка.
+    """
 
-    def __init__(self, body_color=APPLE_COLOR):
+    def __init__(self, body_color):
         super().__init__(body_color)
-        self.position = self.randomize_position()
 
     def randomize_position(self):
-        """Метод для генерации случайных координат положения яблока."""
+        """
+        Метод для генерации случайных координат положения
+        объекта взаимодействия.
+        """
         random_coordinates = [
             randint(0, GRID_WIDTH - 1) * GRID_SIZE,
             randint(0, GRID_HEIGHT - 1) * GRID_SIZE
         ]
         return random_coordinates
 
-    def draw(self):
-        """Метод для отрисовки яблока на экране."""
+    def draw(self, border_color, thickness_outline):
+        """Метод для отрисовки объекта на экране."""
         rect = pygame.Rect(self.position, (GRID_SIZE, GRID_SIZE))
         pygame.draw.rect(screen, self.body_color, rect)
         pygame.draw.rect(
             screen,
-            BORDER_APPLE_COLOR,
+            border_color,
             rect,
-            THICKNESS_APPLE_OUTLINE
+            thickness_outline
         )
+
+
+class Apple(InteractionObjects):
+    """Класс для создания объекта Яблоко."""
+
+    def __init__(self, body_color=APPLE_COLOR):
+        super().__init__(body_color)
+        self.position = super().randomize_position()
+
+    def draw(
+            self, border_color=BORDER_APPLE_COLOR,
+            thickness_outline=THICKNESS_OUTLINE
+    ):
+        """Метод для отрисовки яблока на экране."""
+        super().draw(border_color, thickness_outline)
+
+
+class Stone(InteractionObjects):
+    """Класс для создания объекта Камень."""
+
+    def __init__(self, body_color=STONE_COLOR):
+        super().__init__(body_color)
+        self.stones_coordinates = []
+        ITERATION_NUMBER = 9
+        for _ in range(ITERATION_NUMBER):
+            self.stones_coordinates.append(super().randomize_position())
+
+    def draw(
+            self, border_color=BORDER_STONE_COLOR,
+            thickness_outline=THICKNESS_OUTLINE
+    ):
+        """Метод для отрисовки камней на экране."""
+        for stone_coordinate in self.stones_coordinates:
+            self.position = stone_coordinate
+            super().draw(border_color, thickness_outline)
 
 
 class Snake(GameObject):
@@ -143,7 +186,7 @@ class Snake(GameObject):
                 screen,
                 BORDER_SNAKE_COLOR,
                 rect,
-                THICKNESS_SNAKE_OUTLINE
+                THICKNESS_OUTLINE
             )
 
         head_rect = pygame.Rect(self.positions[0], (GRID_SIZE, GRID_SIZE))
@@ -152,7 +195,7 @@ class Snake(GameObject):
             screen,
             BORDER_SNAKE_COLOR,
             head_rect,
-            THICKNESS_SNAKE_OUTLINE
+            THICKNESS_OUTLINE
         )
 
         # Затирание последнего сегмента
@@ -194,6 +237,7 @@ def main():
     speed = 4  # Скорость движения змейки
     apple = Apple()
     snake = Snake()
+    stones = Stone()
     screen.fill(BOARD_BACKGROUND_COLOR)
     points_count = 0  # Переменная для подсчёта количества съеденных яблок
 
@@ -212,11 +256,18 @@ def main():
             apple.position = new_apple_coordinates
             if points_count % 4 == 0:
                 speed += 1
-        for position in snake.positions[1:]:
-            if snake_current_head_coordinates == position:
-                points_count = 0
-                snake.reset()
-                screen.fill(BOARD_BACKGROUND_COLOR)
+        first_condition = snake_current_head_coordinates in snake.positions[1:]
+        second_condition = (snake_current_head_coordinates
+                            in stones.stones_coordinates)
+        if first_condition or second_condition:
+            points_count = 0
+            snake.reset()
+            screen.fill(BOARD_BACKGROUND_COLOR)
+        if snake_current_head_coordinates in stones.stones_coordinates:
+            points_count = 0
+            snake.reset()
+            screen.fill(BOARD_BACKGROUND_COLOR)
+        stones.draw()
         snake.draw()
         apple.draw()
         pygame.display.update()
