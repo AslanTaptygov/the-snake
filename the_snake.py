@@ -1,5 +1,6 @@
-from random import choice, randint
 from copy import deepcopy
+from random import choice, randint
+
 import pygame
 
 # Константы для размеров поля и сетки:
@@ -77,11 +78,10 @@ class InteractionObjects(GameObject):
         Метод для генерации случайных координат положения
         объекта взаимодействия.
         """
-        random_coordinates = [
+        return [
             randint(0, GRID_WIDTH - 1) * GRID_SIZE,
             randint(0, GRID_HEIGHT - 1) * GRID_SIZE
         ]
-        return random_coordinates
 
     def draw(self, border_color, thickness_outline):
         """Метод для отрисовки объекта на экране."""
@@ -149,8 +149,7 @@ class Snake(GameObject):
 
     def get_head_position(self):
         """Метод для получения координат головы змейки."""
-        result = deepcopy(self.positions[0])
-        return result
+        return deepcopy(self.positions[0])
 
     def update_direction(self):
         """Метод, меняющий направление движения змейки"""
