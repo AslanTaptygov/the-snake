@@ -83,6 +83,7 @@ class GameObject:
     ):
         self.body_color = body_color
         self.position = INITIAL_VALUE_POSITION
+        self.occupied_cells = None
 
     # def draw(self):
     #     """Метод отрисовывания объекта на экране."""
@@ -138,9 +139,9 @@ class InteractionObjects(GameObject):
 class Apple(InteractionObjects):
     """Класс для создания объекта Яблоко."""
 
-    def __init__(self, occupied_cells, body_color=APPLE_COLOR):
+    def __init__(self, body_color=APPLE_COLOR):
         super().__init__(body_color)
-        self.randomize_position(occupied_cells)
+        self.randomize_position(self.occupied_cells)
 
     def draw(
             self, body_color=APPLE_COLOR, border_color=BORDER_APPLE_COLOR,
@@ -280,7 +281,8 @@ def main():
     speed = 4  # Скорость движения змейки
     snake = Snake()
     stones = Stone()
-    apple = Apple(snake.positions + stones.stones_coordinates)
+    apple = Apple()
+    apple.occupied_cells = snake.positions + stones.stones_coordinates
     screen.fill(BOARD_BACKGROUND_COLOR)
     points_count = 0  # Переменная для подсчёта количества съеденных яблок
 
@@ -294,7 +296,8 @@ def main():
         if snake_current_head_coordinates == apple.position:
             snake.length += 1
             points_count += 1
-            apple.randomize_position(occupied_cells)
+            apple.occupied_cells = occupied_cells
+            apple.randomize_position()
             if points_count % 4 == 0:
                 speed += 1
 
