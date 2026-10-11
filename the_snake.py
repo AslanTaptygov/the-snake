@@ -309,8 +309,8 @@ def main():
             snake.reset()
             screen.fill(BOARD_BACKGROUND_COLOR)
             # Избегаем появления яблока в клетке появления Змейки.
-            apple.randomize_position((occupied_cells
-                                      + INITIAL_VALUE_POSITION))
+            apple.occupied_cells = occupied_cells + INITIAL_VALUE_POSITION
+            apple.randomize_position()
         stones.draw()
         snake.draw()
         apple.draw()
