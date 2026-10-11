@@ -1,7 +1,8 @@
 from copy import deepcopy
 from random import choice, randint
+from sys import exit
 
-import pygame
+import pygame as pg
 
 # Константы для размеров поля и сетки:
 SCREEN_WIDTH, SCREEN_HEIGHT = 640, 480
@@ -15,79 +16,86 @@ DOWN = (0, 1)
 LEFT = (-1, 0)
 RIGHT = (1, 0)
 
-# Цвет фона - черный:
-BOARD_BACKGROUND_COLOR = (122, 117, 88)
+# Цвета
+BEIGE = (122, 117, 88)
+RED = (237, 14, 55)
+DARK_RED = (148, 12, 37)
+GRAY = (79, 79, 79)
+DARK_GRAY = (46, 46, 46)
+GREEN = (46, 89, 48)
+DARK_GREEN = (34, 66, 36)
+
+# Цвет фона:
+BOARD_BACKGROUND_COLOR = BEIGE
 
 # Цвет яблока
-APPLE_COLOR = (237, 14, 55)
+APPLE_COLOR = RED
 # Цвет границы яблока
-BORDER_APPLE_COLOR = (148, 12, 37)
+BORDER_APPLE_COLOR = DARK_RED
 
 # Цвет камня
-STONE_COLOR = (79, 79, 79)
+STONE_COLOR = GRAY
 # Цвет границы камня
-BORDER_STONE_COLOR = (46, 46, 46)
+BORDER_STONE_COLOR = DARK_GRAY
 
 # Цвет змейки
-SNAKE_COLOR = (46, 89, 48)
+SNAKE_COLOR = GREEN
 # Цвет границы змейки
-BORDER_SNAKE_COLOR = (34, 66, 36)
+BORDER_SNAKE_COLOR = DARK_GREEN
 
 # Координаты центра экрана
 SCREEN_CENTER_X = SCREEN_WIDTH // 2
 SCREEN_CENTER_Y = SCREEN_HEIGHT // 2
 
+# Начальное значение позиции:
+INITIAL_VALUE_POSITION = [SCREEN_CENTER_X, SCREEN_CENTER_Y]
+
 # Толщина обводки
 THICKNESS_OUTLINE = 2
 
+# Количество камней
+STONES_AMOUNT = 10
+# Клетки, в которых не могут появиться камни (8 клеток вокруг змейки)
+STONES_PROHIBITED_POSITIONS = [
+    INITIAL_VALUE_POSITION,
+    [SCREEN_CENTER_X + GRID_SIZE, SCREEN_CENTER_Y],
+    [SCREEN_CENTER_X - GRID_SIZE, SCREEN_CENTER_Y],
+    [SCREEN_CENTER_X, SCREEN_CENTER_Y + GRID_SIZE],
+    [SCREEN_CENTER_X, SCREEN_CENTER_Y - GRID_SIZE],
+    [SCREEN_CENTER_X + GRID_SIZE, SCREEN_CENTER_Y + GRID_SIZE],
+    [SCREEN_CENTER_X - GRID_SIZE, SCREEN_CENTER_Y - GRID_SIZE],
+    [SCREEN_CENTER_X + GRID_SIZE, SCREEN_CENTER_Y - GRID_SIZE],
+    [SCREEN_CENTER_X - GRID_SIZE, SCREEN_CENTER_Y + GRID_SIZE]
+]
 
-# Настройка игрового окна:
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
 
-# Заголовок окна игрового поля:
-pygame.display.set_caption('Змейка')
-
-# Настройка времени:
-clock = pygame.time.Clock()
+screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
+pg.display.set_caption('Змейка')
+clock = pg.time.Clock()
 
 
-# Тут опишите все классы игры.
 class GameObject:
     """Базовый класс игровых объектов."""
 
-    def __init__(self, body_color=BOARD_BACKGROUND_COLOR):
-        self.position = [SCREEN_CENTER_X, SCREEN_CENTER_Y]
+    def __init__(
+            self,
+            body_color=BOARD_BACKGROUND_COLOR,
+    ):
         self.body_color = body_color
+        self.position = INITIAL_VALUE_POSITION
 
-    def draw(self):
-        """Метод отрисовывания объекта на экране."""
-        pass
+    # def draw(self):
+    #     """Метод отрисовывания объекта на экране."""
+    #     raise NotImplementedError(f'{type(self).__name__} должен '
+    #                               'реализовывать свой метод отрисовывания '
+    #                               'на экране.')
 
-
-class InteractionObjects(GameObject):
-    """
-    Класс для создания объектов,
-    с которыми взаимодействует Змейка.
-    """
-
-    def __init__(self, body_color):
-        super().__init__(body_color)
-
-    def randomize_position(self):
-        """
-        Метод для генерации случайных координат положения
-        объекта взаимодействия.
-        """
-        return [
-            randint(0, GRID_WIDTH - 1) * GRID_SIZE,
-            randint(0, GRID_HEIGHT - 1) * GRID_SIZE
-        ]
-
-    def draw(self, border_color, thickness_outline):
+    def draw(self, position, body_color=None, border_color=None,
+             thickness_outline=THICKNESS_OUTLINE):
         """Метод для отрисовки объекта на экране."""
-        rect = pygame.Rect(self.position, (GRID_SIZE, GRID_SIZE))
-        pygame.draw.rect(screen, self.body_color, rect)
-        pygame.draw.rect(
+        rect = pg.Rect(position, (GRID_SIZE, GRID_SIZE))
+        pg.draw.rect(screen, body_color, rect)
+        pg.draw.rect(
             screen,
             border_color,
             rect,
@@ -95,19 +103,56 @@ class InteractionObjects(GameObject):
         )
 
 
+class InteractionObjects(GameObject):
+    """
+    Класс для создания объектов взаимодействия.
+
+    С помощью этого класса создаются объекты,
+    с которыми взаимодействует Змейка.
+    """
+
+    def __init__(self, body_color):
+        super().__init__(body_color)
+
+    def randomize_position(self, occupied_cells=None):
+        """
+        Метод для генерации случайных координат положения
+        объекта взаимодействия.
+        """
+        while True:
+            random_coordinates = [
+                randint(0, GRID_WIDTH - 1) * GRID_SIZE,
+                randint(0, GRID_HEIGHT - 1) * GRID_SIZE
+            ]
+            if occupied_cells is None:
+                break
+            if random_coordinates not in occupied_cells:
+                break
+        self.position = random_coordinates
+
+    def draw(self, position, body_color, border_color, thickness_outline):
+        """Метод для отрисовки объекта на экране."""
+        super().draw(position, body_color, border_color, thickness_outline)
+
+
 class Apple(InteractionObjects):
     """Класс для создания объекта Яблоко."""
 
-    def __init__(self, body_color=APPLE_COLOR):
+    def __init__(self, occupied_cells, body_color=APPLE_COLOR):
         super().__init__(body_color)
-        self.position = super().randomize_position()
+        self.randomize_position(occupied_cells)
 
     def draw(
-            self, border_color=BORDER_APPLE_COLOR,
+            self, body_color=APPLE_COLOR, border_color=BORDER_APPLE_COLOR,
             thickness_outline=THICKNESS_OUTLINE
     ):
         """Метод для отрисовки яблока на экране."""
-        super().draw(border_color, thickness_outline)
+        super().draw(
+            self.position,
+            body_color,
+            border_color,
+            thickness_outline
+        )
 
 
 class Stone(InteractionObjects):
@@ -116,18 +161,29 @@ class Stone(InteractionObjects):
     def __init__(self, body_color=STONE_COLOR):
         super().__init__(body_color)
         self.stones_coordinates = []
-        ITERATION_NUMBER = 9
-        for _ in range(ITERATION_NUMBER):
-            self.stones_coordinates.append(super().randomize_position())
+        for _ in range(STONES_AMOUNT):
+            # Бесконечный цикл для избежания появления камней друг на друге.
+            while True:
+                self.randomize_position(STONES_PROHIBITED_POSITIONS)
+                if self.position in self.stones_coordinates:
+                    continue
+                self.stones_coordinates.append(self.position)
+                break
 
     def draw(
-            self, border_color=BORDER_STONE_COLOR,
+            self,
+            body_color=STONE_COLOR,
+            border_color=BORDER_STONE_COLOR,
             thickness_outline=THICKNESS_OUTLINE
     ):
         """Метод для отрисовки камней на экране."""
         for stone_coordinate in self.stones_coordinates:
-            self.position = stone_coordinate
-            super().draw(border_color, thickness_outline)
+            super().draw(
+                stone_coordinate,
+                body_color,
+                border_color,
+                thickness_outline,
+            )
 
 
 class Snake(GameObject):
@@ -138,12 +194,14 @@ class Snake(GameObject):
             length=1,
             positions=None,
             direction=RIGHT,
-            body_color=SNAKE_COLOR
+            body_color=SNAKE_COLOR,
     ):
         super().__init__(body_color)
         self.length = length
         if positions is None:
-            self.positions = [[SCREEN_CENTER_X, SCREEN_CENTER_Y]]
+            self.positions = [self.position]
+        else:
+            self.positions = positions
         self.direction = direction
         self.next_direction = None
         self.last = None
@@ -161,53 +219,37 @@ class Snake(GameObject):
     def move(self):
         """Метод, отвечающий за перемещение змейки по полю."""
         current_head_coordinates = self.get_head_position()
-        if self.direction == LEFT:
-            current_head_coordinates[0] = ((current_head_coordinates[0]
-                                            - GRID_SIZE) % SCREEN_WIDTH)
-        elif self.direction == RIGHT:
-            current_head_coordinates[0] = ((current_head_coordinates[0]
-                                           + GRID_SIZE) % SCREEN_WIDTH)
-        elif self.direction == UP:
-            current_head_coordinates[1] = ((current_head_coordinates[1]
-                                           - GRID_SIZE) % SCREEN_HEIGHT)
-        elif self.direction == DOWN:
-            current_head_coordinates[1] = ((current_head_coordinates[1]
-                                           + GRID_SIZE) % SCREEN_HEIGHT)
+        moving = [offset * GRID_SIZE for offset in self.direction]
+        current_head_coordinates[0] = ((current_head_coordinates[0]
+                                        + moving[0]) % SCREEN_WIDTH)
+        current_head_coordinates[1] = ((current_head_coordinates[1]
+                                        + moving[1]) % SCREEN_HEIGHT)
         self.positions.insert(0, current_head_coordinates)
         if len(self.positions) > self.length:
             self.last = self.positions.pop()
 
-    def draw(self):
+    def draw(
+            self,
+            body_color=SNAKE_COLOR,
+            border_color=BORDER_SNAKE_COLOR,
+            thickness_outline=THICKNESS_OUTLINE
+    ):
         """Метод для отрисовки змейки на экране."""
-        for position in self.positions[:-1]:
-            rect = (pygame.Rect(position, (GRID_SIZE, GRID_SIZE)))
-            pygame.draw.rect(screen, self.body_color, rect)
-            pygame.draw.rect(
-                screen,
-                BORDER_SNAKE_COLOR,
-                rect,
-                THICKNESS_OUTLINE
-            )
-
-        head_rect = pygame.Rect(self.positions[0], (GRID_SIZE, GRID_SIZE))
-        pygame.draw.rect(screen, self.body_color, head_rect)
-        pygame.draw.rect(
-            screen,
-            BORDER_SNAKE_COLOR,
-            head_rect,
-            THICKNESS_OUTLINE
+        super().draw(
+            self.get_head_position(),
+            body_color,
+            border_color,
+            thickness_outline,
         )
-
         # Затирание последнего сегмента
         if self.last:
-            last_rect = pygame.Rect(self.last, (GRID_SIZE, GRID_SIZE))
-            pygame.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
+            tail_rect = pg.Rect(self.last, (GRID_SIZE, GRID_SIZE))
+            pg.draw.rect(screen, BEIGE, tail_rect)
 
     def reset(self):
         """Метод, возвращающий змейку в начальное состояние."""
         self.length = 1
-        self.positions = [[SCREEN_CENTER_X, SCREEN_CENTER_Y]]
-        self.position = [SCREEN_CENTER_X, SCREEN_CENTER_Y]
+        self.positions = [INITIAL_VALUE_POSITION]
         self.direction = choice([LEFT, RIGHT, UP, DOWN])
 
 
@@ -216,46 +258,46 @@ def handle_keys(game_object):
     Функция обработки нажатий клавиш пользователем,
     отвечающих за смену направления змейки.
     """
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            raise SystemExit
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP and game_object.direction != DOWN:
-                game_object.next_direction = UP
-            elif event.key == pygame.K_DOWN and game_object.direction != UP:
-                game_object.next_direction = DOWN
-            elif event.key == pygame.K_LEFT and game_object.direction != RIGHT:
-                game_object.next_direction = LEFT
-            elif event.key == pygame.K_RIGHT and game_object.direction != LEFT:
-                game_object.next_direction = RIGHT
+    TURNS = {
+        pg.K_UP: (UP, DOWN),
+        pg.K_DOWN: (DOWN, UP),
+        pg.K_LEFT: (LEFT, RIGHT),
+        pg.K_RIGHT: (RIGHT, LEFT)
+    }
+    for event in pg.event.get():
+        if event.type == pg.QUIT:
+            pg.quit()
+            exit()
+        elif event.type == pg.KEYDOWN and event.key in TURNS:
+            new_direction, opposite = TURNS.get(event.key)
+            if game_object.direction != opposite:
+                game_object.next_direction = new_direction
 
 
 def main():
     """Главная функция программы."""
-    pygame.init()
+    pg.init()
     speed = 4  # Скорость движения змейки
-    apple = Apple()
     snake = Snake()
     stones = Stone()
+    apple = Apple(snake.positions + stones.stones_coordinates)
     screen.fill(BOARD_BACKGROUND_COLOR)
     points_count = 0  # Переменная для подсчёта количества съеденных яблок
 
     while True:
         handle_keys(snake)
         snake.update_direction()
-        apple.randomize_position()
         snake.move()
         snake_current_head_coordinates = snake.get_head_position()
+        occupied_cells = snake.positions + stones.stones_coordinates
+
         if snake_current_head_coordinates == apple.position:
             snake.length += 1
             points_count += 1
-            new_apple_coordinates = apple.randomize_position()
-            while new_apple_coordinates in snake.positions:
-                new_apple_coordinates = apple.randomize_position()
-            apple.position = new_apple_coordinates
+            apple.randomize_position(occupied_cells)
             if points_count % 4 == 0:
                 speed += 1
+
         first_condition = snake_current_head_coordinates in snake.positions[1:]
         second_condition = (snake_current_head_coordinates
                             in stones.stones_coordinates)
@@ -263,14 +305,13 @@ def main():
             points_count = 0
             snake.reset()
             screen.fill(BOARD_BACKGROUND_COLOR)
-        if snake_current_head_coordinates in stones.stones_coordinates:
-            points_count = 0
-            snake.reset()
-            screen.fill(BOARD_BACKGROUND_COLOR)
+            # Избегаем появления яблока в клетке появления Змейки.
+            apple.randomize_position((occupied_cells
+                                      + INITIAL_VALUE_POSITION))
         stones.draw()
         snake.draw()
         apple.draw()
-        pygame.display.update()
+        pg.display.update()
         clock.tick(speed)
 
 
