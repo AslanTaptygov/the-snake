@@ -83,17 +83,20 @@ class GameObject:
     ):
         self.body_color = body_color
         self.position = INITIAL_VALUE_POSITION
-        self.occupied_cells = None
 
-    # def draw(self):
-    #     """Метод отрисовывания объекта на экране."""
-    #     raise NotImplementedError(f'{type(self).__name__} должен '
-    #                               'реализовывать свой метод отрисовывания '
-    #                               'на экране.')
+    def draw(self):
+        """Метод отрисовки объекта на экране."""
+        raise NotImplementedError(f'{type(self).__name__} должен '
+                                  'реализовывать свой метод отрисовывания '
+                                  'на экране.')
 
-    def draw(self, position, body_color=None, border_color=None,
-             thickness_outline=THICKNESS_OUTLINE):
-        """Метод для отрисовки объекта на экране."""
+    def draw_cell(self, position, body_color=None, border_color=None,
+                  thickness_outline=THICKNESS_OUTLINE):
+        """
+        Метод для отрисовки одной клетки на экране.
+
+        Связан с методом draw().
+        """
         rect = pg.Rect(position, (GRID_SIZE, GRID_SIZE))
         pg.draw.rect(screen, body_color, rect)
         pg.draw.rect(
@@ -117,23 +120,25 @@ class InteractionObjects(GameObject):
 
     def randomize_position(self, occupied_cells=None):
         """
-        Метод для генерации случайных координат положения
-        объекта взаимодействия.
+        Метод для генерации случайных координат.
+
+        Генерирует случайные координаты ОДНОЙ клетки объекта взаимодействия.
         """
-        while True:
-            random_coordinates = [
+        occupied_cells = occupied_cells or []
+        is_in_occupied_cells = True
+        while is_in_occupied_cells:
+            self.position = [
                 randint(0, GRID_WIDTH - 1) * GRID_SIZE,
                 randint(0, GRID_HEIGHT - 1) * GRID_SIZE
             ]
-            if occupied_cells is None:
-                break
-            if random_coordinates not in occupied_cells:
-                break
-        self.position = random_coordinates
+            if self.position not in occupied_cells:
+                is_in_occupied_cells = False
 
-    def draw(self, position, body_color, border_color, thickness_outline):
+    def draw(self, position=None, body_color=BEIGE, border_color=BEIGE,
+             thickness_outline=THICKNESS_OUTLINE):
         """Метод для отрисовки объекта на экране."""
-        super().draw(position, body_color, border_color, thickness_outline)
+        position = position or self.position
+        self.draw_cell(position, body_color, border_color, thickness_outline)
 
 
 class Apple(InteractionObjects):
@@ -141,19 +146,13 @@ class Apple(InteractionObjects):
 
     def __init__(self, body_color=APPLE_COLOR):
         super().__init__(body_color)
-        self.randomize_position(self.occupied_cells)
 
     def draw(
-            self, body_color=APPLE_COLOR, border_color=BORDER_APPLE_COLOR,
-            thickness_outline=THICKNESS_OUTLINE
+            self, body_color=APPLE_COLOR, border_color=BORDER_APPLE_COLOR
     ):
         """Метод для отрисовки яблока на экране."""
-        super().draw(
-            self.position,
-            body_color,
-            border_color,
-            thickness_outline
-        )
+        self.draw_cell(self.position, body_color,
+                       border_color)
 
 
 class Stone(InteractionObjects):
@@ -161,29 +160,35 @@ class Stone(InteractionObjects):
 
     def __init__(self, body_color=STONE_COLOR):
         super().__init__(body_color)
-        self.stones_coordinates = []
+        # Генератору камней не нужно учитывать занятые позиции, поскольку
+        # камни генерируются в приоритетном порядке после змейки, а со змейкой
+        # они пересечься не могут.
+        self.stones_coordinates = self.add_positions()
+
+    def add_positions(self):
+        """Метод для генерации камней."""
+        stones_coordinates = []
         for _ in range(STONES_AMOUNT):
             # Бесконечный цикл для избежания появления камней друг на друге.
             while True:
                 self.randomize_position(STONES_PROHIBITED_POSITIONS)
-                if self.position in self.stones_coordinates:
+                if self.position in stones_coordinates:
                     continue
-                self.stones_coordinates.append(self.position)
+                stones_coordinates.append(self.position)
                 break
+        return stones_coordinates
 
     def draw(
             self,
             body_color=STONE_COLOR,
-            border_color=BORDER_STONE_COLOR,
-            thickness_outline=THICKNESS_OUTLINE
+            border_color=BORDER_STONE_COLOR
     ):
         """Метод для отрисовки камней на экране."""
         for stone_coordinate in self.stones_coordinates:
-            super().draw(
+            self.draw_cell(
                 stone_coordinate,
                 body_color,
-                border_color,
-                thickness_outline,
+                border_color
             )
 
 
@@ -232,25 +237,22 @@ class Snake(GameObject):
     def draw(
             self,
             body_color=SNAKE_COLOR,
-            border_color=BORDER_SNAKE_COLOR,
-            thickness_outline=THICKNESS_OUTLINE
+            border_color=BORDER_SNAKE_COLOR
     ):
         """Метод для отрисовки змейки на экране."""
-        super().draw(
+        self.draw_cell(
             self.get_head_position(),
             body_color,
-            border_color,
-            thickness_outline,
+            border_color
         )
         # Затирание последнего сегмента
         if self.last:
-            tail_rect = pg.Rect(self.last, (GRID_SIZE, GRID_SIZE))
-            pg.draw.rect(screen, BEIGE, tail_rect)
+            self.draw_cell(self.last, BEIGE, BEIGE)
 
     def reset(self):
         """Метод, возвращающий змейку в начальное состояние."""
         self.length = 1
-        self.positions = [INITIAL_VALUE_POSITION]
+        self.positions = [self.position]
         self.direction = choice([LEFT, RIGHT, UP, DOWN])
 
 
@@ -282,7 +284,10 @@ def main():
     snake = Snake()
     stones = Stone()
     apple = Apple()
-    apple.occupied_cells = snake.positions + stones.stones_coordinates
+    apple.randomize_position([
+        *stones.stones_coordinates,
+        *INITIAL_VALUE_POSITION
+    ])
     screen.fill(BOARD_BACKGROUND_COLOR)
     points_count = 0  # Переменная для подсчёта количества съеденных яблок
 
@@ -291,13 +296,14 @@ def main():
         snake.update_direction()
         snake.move()
         snake_current_head_coordinates = snake.get_head_position()
-        occupied_cells = snake.positions + stones.stones_coordinates
 
         if snake_current_head_coordinates == apple.position:
             snake.length += 1
             points_count += 1
-            apple.occupied_cells = occupied_cells
-            apple.randomize_position()
+            apple.randomize_position([
+                *snake.positions,
+                *stones.stones_coordinates
+            ])
             if points_count % 4 == 0:
                 speed += 1
 
@@ -306,11 +312,17 @@ def main():
                             in stones.stones_coordinates)
         if first_condition or second_condition:
             points_count = 0
+            # Метод гарантирует появление змейки в середине экрана.
+            # После сброса игры учтено, что камни и яблоки не могут появиться
+            # в середине экрана (там же, где и змейка).
             snake.reset()
             screen.fill(BOARD_BACKGROUND_COLOR)
             # Избегаем появления яблока в клетке появления Змейки.
-            apple.occupied_cells = occupied_cells + INITIAL_VALUE_POSITION
-            apple.randomize_position()
+            apple.randomize_position([
+                *snake.positions,
+                *stones.stones_coordinates,
+                *INITIAL_VALUE_POSITION
+            ])
         stones.draw()
         snake.draw()
         apple.draw()
